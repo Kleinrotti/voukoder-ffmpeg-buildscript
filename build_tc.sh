@@ -25,60 +25,6 @@ amf="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
 ffnvcodec="https://github.com/FFmpeg/nv-codec-headers.git"
 libmfx="https://github.com/Intel-Media-SDK/MediaSDK.git"
 
-if [ "$MODE" == "debug" ]; then
-  MSBUILD_CONFIG=Debug
-  CFLAGS=-MDd
-elif [ "$MODE" == "release" ]; then
-  MSBUILD_CONFIG=Release
-  CFLAGS=-MD
-else
-  echo "Please supply build mode [debug|release]!"
-  exit 1
-fi
-
-# Create build dirs
-[ ! -d "$BUILD" ] && mkdir $BUILD
-[ ! -d "$BUILD/include" ] && mkdir $BUILD/include
-[ ! -d "$BUILD/lib" ] && mkdir $BUILD/lib
-[ ! -d "$BUILD/lib/pkgconfig" ] && mkdir $BUILD/lib/pkgconfig
-
-if [ "$STEP" == "svt-av1" ]; then
-  compile_svt-av1
-elif [ "$STEP" == "all" ]; then
-  compile_all
-elif [ "$STEP" == "clone" ]; then
-  clone_all
-elif [ "$STEP" == "libmfx" ]; then
-  compile_libmfx
-elif [ "$STEP" == "opus" ]; then
-  compile_opus
-elif [ "$STEP" == "libfdk-aac" ]; then
-  compile_fdk-aac
-elif [ "$STEP" == "lame" ]; then
-  compile_libmp3lame
-elif [ "$STEP" == "zimg" ]; then
-  compile_zimg
-elif [ "$STEP" == "x264" ]; then
-  compile_x264
-elif [ "$STEP" == "x265" ]; then
-  compile_x265
-elif [ "$STEP" == "libogg" ]; then
-  compile_libogg
-elif [ "$STEP" == "libvorbis" ]; then
-  compile_libvorbis
-elif [ "$STEP" == "libvpx" ]; then
-  compile_libvpx
-elif [ "$STEP" == "snappy" ]; then
-  compile_snappy
-elif [ "$STEP" == "libaom" ]; then
-  compile_libaom
-elif [ "$STEP" == "ffmpeg" ]; then
-  compile_ffmpeg
-else
-  echo "Unknown build step!"
-  exit 1
-fi
-
 function compile_all {
   compile_libaom
   compile_libmfx
@@ -93,6 +39,13 @@ function compile_all {
   compile_x265
   compile_zimg
   compile_svt-av1
+}
+
+function create_builddirs {
+  [ ! -d "$BUILD" ] && mkdir $BUILD
+  [ ! -d "$BUILD/include" ] && mkdir $BUILD/include
+  [ ! -d "$BUILD/lib" ] && mkdir $BUILD/lib
+  [ ! -d "$BUILD/lib/pkgconfig" ] && mkdir $BUILD/lib/pkgconfig
 }
 
 function clone_all {
@@ -137,8 +90,6 @@ function compile_svt-av1 {
   cp -r ../Source/API $BUILD/include/svt-av1
   cp ../Bin/Release/$MSBUILD_CONFIG/SvtAv1Enc.lib $BUILD/lib/
   cp SvtAv1Enc.pc $BUILD/lib/pkgconfig/
-  cd $SRC/ffmpeg
-  git apply ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
 }
 
 function compile_libmfx {
@@ -286,6 +237,7 @@ function compile_ffmpeg {
   
   echo "### Applying patches ..."
   cd $SRC/ffmpeg
+  git apply ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
   
   ffbranch=$(git rev-parse --abbrev-ref HEAD)
   echo "FFMpeg branch: $ffbranch ..."
@@ -320,3 +272,76 @@ function compile_ffmpeg {
   cd $SRC/ffmpeg
   tar czf ../../dist/ffmpeg-win64-static-src-$MODE.tar.gz *
 }
+
+function print_help {
+  echo "Parameters which can be used"
+  echo "First parameter:"
+  echo "clone|clean_sources|<package to compile>"
+  echo "Second paramter is only needed when compiling a package (build mode):"
+  echo "release|debug"
+  echo "Third parameter is fully optional and sets the CPU core number when compiling"
+}
+
+if [ "$MODE" == "debug" ]; then
+  MSBUILD_CONFIG=Debug
+  CFLAGS=-MDd
+  create_builddirs
+elif [ "$MODE" == "release" ]; then
+  MSBUILD_CONFIG=Release
+  CFLAGS=-MD
+  create_builddirs
+elif [ "$STEP" == "clone" ]; then
+  echo "#### CLONING ..."
+elif [ "$STEP" == "clean_sources" ]; then
+  echo "#### CLEANING SOURCES ..."
+elif [ "$STEP" == "-h" ]; then
+  print_help
+  exit 0
+else
+  echo "Please supply build mode [debug|release]!"
+  exit 1
+fi
+
+if [ -z "$CPU_CORES" ]; then
+  CPU_CORES=$(nproc --all)
+fi
+
+if [ "$STEP" == "svt-av1" ]; then
+  compile_svt-av1
+elif [ "$STEP" == "all" ]; then
+  compile_all
+elif [ "$STEP" == "clean_sources" ]; then
+  rm -rf $SRC
+  mkdir $SRC
+elif [ "$STEP" == "clone" ]; then
+  clone_all
+elif [ "$STEP" == "libmfx" ]; then
+  compile_libmfx
+elif [ "$STEP" == "opus" ]; then
+  compile_opus
+elif [ "$STEP" == "libfdk-aac" ]; then
+  compile_fdk-aac
+elif [ "$STEP" == "lame" ]; then
+  compile_libmp3lame
+elif [ "$STEP" == "zimg" ]; then
+  compile_zimg
+elif [ "$STEP" == "x264" ]; then
+  compile_x264
+elif [ "$STEP" == "x265" ]; then
+  compile_x265
+elif [ "$STEP" == "libogg" ]; then
+  compile_libogg
+elif [ "$STEP" == "libvorbis" ]; then
+  compile_libvorbis
+elif [ "$STEP" == "libvpx" ]; then
+  compile_libvpx
+elif [ "$STEP" == "snappy" ]; then
+  compile_snappy
+elif [ "$STEP" == "libaom" ]; then
+  compile_libaom
+elif [ "$STEP" == "ffmpeg" ]; then
+  compile_ffmpeg
+else
+  echo "Unknown build step!"
+  exit 1
+fi
