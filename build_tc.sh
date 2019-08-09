@@ -43,13 +43,13 @@ fi
 [ ! -d "$BUILD/lib/pkgconfig" ] && mkdir $BUILD/lib/pkgconfig
 
 if [ "$STEP" == "svt-av1" ]; then
-  svt-av1
+  compile_svt-av1
 elif [ "$STEP" == "all" ]; then
   compile_all
 elif [ "$STEP" == "clone" ]; then
   clone_all
 elif [ "$STEP" == "libmfx" ]; then
-  libmfx
+  compile_libmfx
 elif [ "$STEP" == "opus" ]; then
   compile_opus
 elif [ "$STEP" == "libfdk-aac" ]; then
