@@ -26,7 +26,7 @@ ffnvcodec="https://github.com/FFmpeg/nv-codec-headers.git"
 libmfx="https://github.com/Intel-Media-SDK/MediaSDK.git"
 
 function compile_all {
-  compile_libaom
+  #compile_libaom
   compile_libmfx
   compile_libmp3lame
   compile_libogg
@@ -84,6 +84,7 @@ function compile {
 }
 
 function compile_svt-av1 {
+  echo "#### COMPILING SVT-AV1 ..."
   cd $SRC/svt-av1/Build
   cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
   MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:ConfigurationType="StaticLibrary" /property:TargetExt=".lib" Source/Lib/Encoder/SvtAv1Enc.vcxproj
@@ -93,6 +94,11 @@ function compile_svt-av1 {
 }
 
 function compile_libmfx {
+  echo "#### COMPILING LIBMFX ..."
+  #cd $SRC/libmfx/api/mfx_dispatch/windows
+  #MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
+  #cp $SRC/libmfx/build/libmfx_vs2015.lib $BUILD/lib/lmfx.lib
+  #cp -r ../../include $BUILD/include/mfx 
   cd $SRC/libmfx
   if [[ ! -f "configure" ]]; then
       autoreconf -fiv || exit 1
@@ -102,6 +108,7 @@ function compile_libmfx {
 }
 
 function compile_opus {
+  echo "#### COMPILING OPUS ..."
   cd $SRC/opus/win32/VS2015
   echo \nConverting project file ...
   sed -i 's/v140/v141/v142g' opus.vcxproj
@@ -120,6 +127,7 @@ function compile_opus {
 }
 
 function compile_zimg {
+  echo "#### COMPILING ZIMG ..."
   cd $SRC/zimg
   ./autogen.sh
   ./configure --prefix=$BUILD
@@ -132,10 +140,12 @@ function compile_zimg {
 }
 
 function compile_fdk-aac {
+  echo "#### COMPILING FDK-AAC ..."
   compile fdk-aac "--disable-static --disable-shared"
 }
 
 function compile_snappy {
+  echo "#### COMPILING SNAPPY ..."
   cd $SRC/snappy
   rm -rf work
   mkdir work
@@ -147,6 +157,7 @@ function compile_snappy {
 }
 
 function compile_x264 {
+  echo "#### COMPILING X264 ..."
   cd $SRC/x264
   CC=cl ./configure --prefix=$BUILD --extra-cflags='-DNO_PREFIX' --disable-cli --enable-static --libdir=$BUILD/lib
   make -j $CPU_CORES
@@ -154,6 +165,7 @@ function compile_x264 {
 }
 
 function compile_x265 {
+  echo "#### COMPILING X265 ..."
   # checkout manually (cmake is getting values from git)
   cd $src/..
   if [ ! -d $SRC/x265/.git ]; then
@@ -188,6 +200,7 @@ function compile_x265 {
 }
 
 function compile_libaom {
+  echo "#### COMPILING LIBAOM ..."
   cd $SRC/libaom
   rm -rf work
   mkdir work
@@ -204,22 +217,26 @@ function compile_libaom {
 }
 
 function compile_libmp3lame {
+  echo "#### COMPILING LIBMP3LAME ..."
   compile lame "--enable-nasm --disable-frontend --disable-shared --enable-static"
   cp $BUILD/lib/libmp3lame.lib $BUILD/lib/mp3lame.lib
   rm $BUILD/lib/libmp3lame.lib
 }
 
 function compile_libogg {
+  echo "#### COMPILING LIBOGG ..."
   compile libogg "--disable-shared"
 }
 
 function compile_libvorbis {
+  echo "#### COMPILING LIBVORBIS ..."
   cp -ar $SRC/libogg/include/ogg/ $SRC/libvorbis/lib/ #copying needed ogg files
   compile libvorbis "--disable-shared"  
   sed -i '/^Libs\.private.*/d' $BUILD/lib/pkgconfig/vorbis.pc  # don't need m.lib on windows
 }
 
 function compile_libvpx {
+  echo "#### COMPILING LIBVPX ..."
   cd $SRC/libvpx/SMP
   MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:PostBuildEventUseInBuild=false /property:OutDir="$(ProjectDir)..\msvc/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libvpx.sln
   cp $SRC/libvpx/msvc/lib/x64/libvpxd.lib $BUILD/lib/vpx.lib
@@ -241,8 +258,6 @@ function compile_ffmpeg {
   
   ffbranch=$(git rev-parse --abbrev-ref HEAD)
   echo "FFMpeg branch: $ffbranch ..."
-  #patch -N -p1 -i ../../patches/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
-  #patch -N -p1 -i ../../patches/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch
   if [ "$ffbranch" == "release/4.0" ]; then
     patch -N -p1 -i ../../patches/0001-dynamic-loading-of-shared-fdk-aac-library-4.0.patch
     patch -N -p0 -i ../../patches/0002-patch-ffmpeg-to-new-fdk-api.patch
