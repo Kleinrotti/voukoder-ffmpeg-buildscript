@@ -17,6 +17,11 @@ Builds static libraries of ffmeg and external libraries (x264 8bit, x265 8,10 an
 - Install nasm to /usr/bin/nasm.exe
 - Install cmake gui
 - Add cmake path to path variable
+- To compile libvpx: 
+         For Visual Studio the base yasm binary (not vsyasm) should be in the
+         PATH for Visual Studio. For VS2017 it is sufficient to rename
+         yasm-<version>-<arch>.exe to yasm.exe and place it in:
+         Program Files (x86)/Microsoft Visual Studio/2017/<level>/Common7/Tools/
 
 ## Starting the build
 - Have the build.sh file at i.e. "/home/daniel/ffmpeg/build.sh"
