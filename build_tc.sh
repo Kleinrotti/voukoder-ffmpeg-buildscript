@@ -23,7 +23,7 @@ libaom="https://aomedia.googlesource.com/aom"
 ffmpeg="https://github.com/FFmpeg/FFmpeg.git"
 amf="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
 ffnvcodec="https://github.com/FFmpeg/nv-codec-headers.git"
-libmfx="https://github.com/Intel-Media-SDK/MediaSDK.git"
+libmfx="https://github.com/lu-zero/mfx_dispatch.git"
 
 function compile_all {
   #compile_libaom
@@ -95,10 +95,6 @@ function compile_svt-av1 {
 
 function compile_libmfx {
   echo "#### COMPILING LIBMFX ..."
-  #cd $SRC/libmfx/api/mfx_dispatch/windows
-  #MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
-  #cp $SRC/libmfx/build/libmfx_vs2015.lib $BUILD/lib/lmfx.lib
-  #cp -r ../../include $BUILD/include/mfx 
   cd $SRC/libmfx
   if [[ ! -f "configure" ]]; then
       autoreconf -fiv || exit 1
@@ -237,9 +233,11 @@ function compile_libvorbis {
 
 function compile_libvpx {
   echo "#### COMPILING LIBVPX ..."
-  cd $SRC/libvpx/SMP
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:PostBuildEventUseInBuild=false /property:OutDir="$(ProjectDir)..\msvc/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libvpx.sln
-  cp $SRC/libvpx/msvc/lib/x64/libvpxd.lib $BUILD/lib/vpx.lib
+  cd $SRC/libvpx
+  ./configure --prefix=$BUILD --target=x86_64-win64-vs15 --enable-vp9-highbitdepth --disable-shared --disable-examples --disable-tools --disable-docs --disable-libyuv --disable-unit_tests --disable-postproc
+  make -j $CPU_CORES
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:TargetName=vpx /property:PostBuildEventUseInBuild=false /property:OutDir=$(ProjectDir)msvc/ /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 vpx.vcxproj
+  cp $SRC/libvpx/msvc/vpx.lib $BUILD/lib/vpx.lib
 }
 
 function compile_ffmpeg {
@@ -254,8 +252,7 @@ function compile_ffmpeg {
   
   echo "### Applying patches ..."
   cd $SRC/ffmpeg
-  git apply ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
-  
+  patch -N -p1 -i ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
   ffbranch=$(git rev-parse --abbrev-ref HEAD)
   echo "FFMpeg branch: $ffbranch ..."
   if [ "$ffbranch" == "release/4.0" ]; then
