@@ -9,7 +9,7 @@ Builds static libraries of ffmeg and external libraries (x264 8bit, x265 8,10 an
 ## Start msys2
 - Open a command prompt
 - Run "vcvarsall.bat amd64" in "c:\program files (x86)\microsoft visual studio\2017\community\VC\Auxiliary\Build"
-- Run msys2 with "msys2_shell.cmd -mingw64 -full-path"
+- Run x64 native command promt and start msys2 with "msys2_shell.cmd -mingw64 -full-path"
 
 ## Install development tools
 - Install CMakeGui in Windows to have the VisualStudio templates ready
