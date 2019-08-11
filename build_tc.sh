@@ -17,16 +17,16 @@ x265="https://github.com/videolan/x265.git"
 x264="https://code.videolan.org/videolan/x264.git"
 libogg="https://github.com/xiph/ogg.git"
 libvorbis="https://github.com/xiph/vorbis.git"
-libvpx="https://github.com/ShiftMediaProject/libvpx.git"
+libvpx="https://github.com/webmproject/libvpx.git"
 snappy="https://github.com/google/snappy.git"
 libaom="https://aomedia.googlesource.com/aom"
 ffmpeg="https://github.com/FFmpeg/FFmpeg.git"
 amf="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
 ffnvcodec="https://github.com/FFmpeg/nv-codec-headers.git"
-libmfx="https://github.com/lu-zero/mfx_dispatch.git"
+libmfx="https://github.com/Intel-Media-SDK/MediaSDK.git"
 
 function compile_all {
-  #compile_libaom
+  compile_libaom
   compile_libmfx
   compile_libmp3lame
   compile_libogg
@@ -69,10 +69,6 @@ function clone_all {
   git clone $ffnvcodec $SRC/ffnvcodec
 }
 
-function check_libs {
-  echo "test"
-}
-
 function compile {
   cd $SRC/$1
   if [ -f autogen.sh ]; then
@@ -95,12 +91,14 @@ function compile_svt-av1 {
 
 function compile_libmfx {
   echo "#### COMPILING LIBMFX ..."
-  cd $SRC/libmfx
-  if [[ ! -f "configure" ]]; then
-      autoreconf -fiv || exit 1
+  cd $SRC/libmfx/api/mfx_dispatch/windows
+  if [ "$MODE" == "debug" ];then
+    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:RuntimeLibrary=MultiThreadedDebug /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
+  else
+    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
   fi
-  compile libmfx
-  sed -i 's/-lstdc++/-ladvapi32/g' $BUILD/lib/pkgconfig/libmfx.pc
+  cp $SRC/libmfx/build/libmfx_vs2015.lib $BUILD/lib/libmfx.lib
+  cp -r ../../include $BUILD/include/mfx
 }
 
 function compile_opus {
@@ -238,6 +236,7 @@ function compile_libvpx {
   make -j $CPU_CORES
   MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:TargetName=vpx /property:PostBuildEventUseInBuild=false /property:OutDir=$(ProjectDir)msvc/ /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 vpx.vcxproj
   cp $SRC/libvpx/msvc/vpx.lib $BUILD/lib/vpx.lib
+  cp -r $SRC/libvpx/vpx $BUILD/include
 }
 
 function compile_ffmpeg {
@@ -264,7 +263,7 @@ function compile_ffmpeg {
   
   echo "### Compiling FFMpeg ..."
   cd $SRC/ffmpeg
-  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" --disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libmp3lame --enable-libzimg --enable-avisynth --enable-libx264 --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac --enable-libsvtav1
+  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" --disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libmp3lame --enable-libsvtav1 --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac
   make -j $CPU_CORES
   make install
   
@@ -273,16 +272,13 @@ function compile_ffmpeg {
   for file in *.a; do
     mv "$file" "`basename "$file" .a`.lib"
   done
-
-  # clean up
-  #rm -rf $BUILD/lib/pkgconfig $BUILD/lib/fdk-aac.lib $BUILD/lib/*.la
   
   # Create archives
   cd $BUILD
   mkdir ../dist 2>/dev/null
   tar czf ../dist/ffmpeg-win64-static-$MODE.tar.gz *
-  cd $SRC/ffmpeg
-  tar czf ../../dist/ffmpeg-win64-static-src-$MODE.tar.gz *
+  #cd $SRC/ffmpeg
+  #tar czf ../../dist/ffmpeg-win64-static-src-$MODE.tar.gz *
 }
 
 function print_help {
@@ -304,8 +300,8 @@ elif [ "$MODE" == "release" ]; then
   create_builddirs
 elif [ "$STEP" == "clone" ]; then
   echo "#### CLONING ..."
-elif [ "$STEP" == "clean_sources" ]; then
-  echo "#### CLEANING SOURCES ..."
+elif [ "$STEP" == "clean" ]; then
+  echo "#### CLEANING ..."
 elif [ "$STEP" == "-h" ]; then
   print_help
   exit 0
@@ -322,8 +318,11 @@ if [ "$STEP" == "svt-av1" ]; then
   compile_svt-av1
 elif [ "$STEP" == "all" ]; then
   compile_all
-elif [ "$STEP" == "clean_sources" ]; then
+elif [ "$STEP" == "clean" ]; then
   rm -rf $SRC
+  cd $BUILD
+  rm -rf ../dist
+  rm -rf $BUILD
   mkdir $SRC
 elif [ "$STEP" == "clone" ]; then
   clone_all
