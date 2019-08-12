@@ -38,7 +38,9 @@ function compile_all {
   compile_x264
   compile_x265
   compile_zimg
-  compile_svt-av1
+  #compile_svt-av1
+  compile_svt-hevc
+  #compile_svt-vp9
 }
 
 function create_builddirs {
@@ -87,6 +89,26 @@ function compile_svt-av1 {
   cp -r ../Source/API $BUILD/include/svt-av1
   cp ../Bin/Release/$MSBUILD_CONFIG/SvtAv1Enc.lib $BUILD/lib/
   cp SvtAv1Enc.pc $BUILD/lib/pkgconfig/
+}
+
+function compile_svt-hevc {
+  echo "#### COMPILING SVT-HEVC ..."
+  cd $SRC/svt-hevc/Build
+  cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\..\Bin/" /property:ConfigurationType="StaticLibrary" /property:TargetExt=".lib" Source/Lib/Codec/SvtHevcEnc.vcxproj
+  cp -r ../Source/API $BUILD/include/svt-hevc
+  cp ../Bin/SvtHevcEnc.lib $BUILD/lib/
+  cp SvtHevcEnc.pc $BUILD/lib/pkgconfig/
+}
+
+function compile_svt-vp9 {
+  echo "#### COMPILING SVT-VP9 ..."
+  cd $SRC/svt-vp9/Build
+  cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\..\Bin/" /property:ConfigurationType="StaticLibrary" /property:TargetExt=".lib" Source/Lib/Codec/SvtVp9Enc.vcxproj
+  cp -r ../Source/API $BUILD/include/svt-vp9
+  cp ../Bin/SvtVp9Enc.lib $BUILD/lib/
+  cp SvtVp9Enc.pc $BUILD/lib/pkgconfig/
 }
 
 function compile_libmfx {
@@ -251,7 +273,10 @@ function compile_ffmpeg {
   
   echo "### Applying patches ..."
   cd $SRC/ffmpeg
-  patch -N -p1 -i ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
+  #patch -N -p1 -i ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
+  #patch -N -p1 -i ../svt-vp9/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch
+  patch -N -p1 -i ../svt-hevc/ffmpeg_plugin/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch
+  patch -N -p1 -i ../svt-hevc/ffmpeg_plugin/0002-doc-Add-libsvt_hevc-encoder-docs.patch
   ffbranch=$(git rev-parse --abbrev-ref HEAD)
   echo "FFMpeg branch: $ffbranch ..."
   if [ "$ffbranch" == "release/4.0" ]; then
@@ -263,7 +288,7 @@ function compile_ffmpeg {
   
   echo "### Compiling FFMpeg ..."
   cd $SRC/ffmpeg
-  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" --disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libmp3lame --enable-libsvtav1 --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac
+  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" --disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac
   make -j $CPU_CORES
   make install
   
@@ -316,6 +341,10 @@ fi
 
 if [ "$STEP" == "svt-av1" ]; then
   compile_svt-av1
+elif [ "$STEP" == "svt-hevc" ]; then
+  compile_svt-hevc
+elif [ "$STEP" == "svt-vp9" ]; then
+  compile_svt-vp9
 elif [ "$STEP" == "all" ]; then
   compile_all
 elif [ "$STEP" == "clean" ]; then
