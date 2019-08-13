@@ -6,6 +6,8 @@ CPU_CORES=$3
 SRC=`realpath src`
 BUILD=`realpath build`
 VSVERSION="Visual Studio 16 2019"
+TARGETPLATFORM=10.0.18362.0
+TOOLSET=v142
 svtvp9="https://github.com/OpenVisualCloud/SVT-VP9.git"
 svtav1="https://github.com/OpenVisualCloud/SVT-AV1.git"
 svthevc="https://github.com/OpenVisualCloud/SVT-HEVC.git"
@@ -14,7 +16,7 @@ fdkaac="https://github.com/mstorsjo/fdk-aac.git"
 libmp3lame="https://github.com/gypified/libmp3lame.git"
 zimg="https://github.com/sekrit-twc/zimg.git"
 x265="https://github.com/videolan/x265.git"
-x264="https://code.videolan.org/videolan/x264.git"
+x264="https://github.com/ShiftMediaProject/x264.git"
 libogg="https://github.com/xiph/ogg.git"
 libvorbis="https://github.com/xiph/vorbis.git"
 libvpx="https://github.com/webmproject/libvpx.git"
@@ -115,9 +117,10 @@ function compile_libmfx {
   echo "#### COMPILING LIBMFX ..."
   cd $SRC/libmfx/api/mfx_dispatch/windows
   if [ "$MODE" == "debug" ];then
-    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:RuntimeLibrary=MultiThreadedDebug /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
+    sed -i 's/\<MultiThreadedDebug\>/MultiThreadedDebugDLL/g' libmfx_vs2015.vcxproj
+    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libmfx_vs2015.vcxproj
   else
-    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 libmfx_vs2015.vcxproj
+    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libmfx_vs2015.vcxproj
   fi
   cp $SRC/libmfx/build/libmfx_vs2015.lib $BUILD/lib/libmfx.lib
   cp -r ../../include $BUILD/include/mfx
@@ -127,9 +130,9 @@ function compile_opus {
   echo "#### COMPILING OPUS ..."
   cd $SRC/opus/win32/VS2015
   echo \nConverting project file ...
-  sed -i 's/v140/v141/v142g' opus.vcxproj
+  sed -i 's/v140/v142' opus.vcxproj
   echo Building project 'opus' ...
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 opus.vcxproj
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 opus.vcxproj
   echo Done.
   cp x64/$MSBUILD_CONFIG/opus.lib $BUILD/lib/opus.lib
   cp -r $SRC/opus/include $BUILD/include/opus
@@ -148,7 +151,7 @@ function compile_zimg {
   ./autogen.sh
   ./configure --prefix=$BUILD
   cd _msvc/zimg
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:ConfigurationType=StaticLibrary /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 /property:WholeProgramOptimization=false zimg.vcxproj
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:ConfigurationType=StaticLibrary /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 /property:WholeProgramOptimization=false zimg.vcxproj
   cp x64/$MSBUILD_CONFIG/z.lib $BUILD/lib/zimg.lib
   cd ../..
   cp src/zimg/api/zimg.h  $BUILD/include/zimg.h
@@ -176,19 +179,15 @@ function compile_x264 {
   echo "#### COMPILING X264 ..."
   cd $SRC/x264
   CC=cl ./configure --prefix=$BUILD --extra-cflags='-DNO_PREFIX' --disable-cli --enable-static --libdir=$BUILD/lib
-  make -j $CPU_CORES
-  make install-lib-static
+  cd $SRC/x264/SMP
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\build/" /property:TargetName=libx264 /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libx264.vcxproj
+  cp -r $SRC/x264/build/include/* $BUILD/include
+  cp $SRC/x264/x264.pc $BUILD/lib/pkgconfig
+  cp $SRC/x264/build/lib/x64/libx264.lib $BUILD/lib
 }
 
 function compile_x265 {
   echo "#### COMPILING X265 ..."
-  # checkout manually (cmake is getting values from git)
-  cd $src/..
-  if [ ! -d $SRC/x265/.git ]; then
-    git clone https://github.com/videolan/x265.git --branch stable $SRC/x265
-  fi
-  git reset --hard
-  git pull
   cd $SRC/x265/build/vc15-x86_64
   rm -rf work*
   mkdir work work10 work12
@@ -256,7 +255,7 @@ function compile_libvpx {
   cd $SRC/libvpx
   ./configure --prefix=$BUILD --target=x86_64-win64-vs15 --enable-vp9-highbitdepth --disable-shared --disable-examples --disable-tools --disable-docs --disable-libyuv --disable-unit_tests --disable-postproc
   make -j $CPU_CORES
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:TargetName=vpx /property:PostBuildEventUseInBuild=false /property:OutDir=$(ProjectDir)msvc/ /property:WindowsTargetPlatformVersion=10.0.18362.0 /property:PlatformToolset=v142 /property:Platform=x64 vpx.vcxproj
+  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:TargetName=vpx /property:PostBuildEventUseInBuild=false /property:OutDir="$(ProjectDir)msvc/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 vpx.vcxproj
   cp $SRC/libvpx/msvc/vpx.lib $BUILD/lib/vpx.lib
   cp -r $SRC/libvpx/vpx $BUILD/include
 }
@@ -288,7 +287,12 @@ function compile_ffmpeg {
   
   echo "### Compiling FFMpeg ..."
   cd $SRC/ffmpeg
-  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" --disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac
+  if [ "$MODE" == "debug" ]; then
+    TOOLS="--disable-doc --disable-shared --disable-stripping --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac"
+  else
+    TOOLS="--disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac"
+  fi
+  PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" $TOOLS
   make -j $CPU_CORES
   make install
   
