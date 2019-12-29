@@ -6,7 +6,7 @@ CPU_CORES=$3
 SRC=`realpath src`
 BUILD=`realpath build`
 VSVERSION="Visual Studio 16 2019"
-TARGETPLATFORM=10.0.18362.0
+TARGETPLATFORM=10.0.17763.0
 TOOLSET=v142
 svtvp9="https://github.com/OpenVisualCloud/SVT-VP9.git"
 svtav1="https://github.com/OpenVisualCloud/SVT-AV1.git"
@@ -22,13 +22,13 @@ libvorbis="https://github.com/xiph/vorbis.git"
 libvpx="https://github.com/webmproject/libvpx.git"
 snappy="https://github.com/google/snappy.git"
 libaom="https://aomedia.googlesource.com/aom"
-ffmpeg="https://github.com/FFmpeg/FFmpeg.git"
-amf="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
-ffnvcodec="https://github.com/FFmpeg/nv-codec-headers.git"
-libmfx="https://github.com/Intel-Media-SDK/MediaSDK.git"
+ffmpeg="git://source.ffmpeg.org/ffmpeg.git"
+amf="git://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
+ffnvcodec="git://github.com/FFmpeg/nv-codec-headers.git"
+libmfx="https://github.com/lu-zero/mfx_dispatch.git"
 
 function compile_all {
-  compile_libaom
+  #compile_libaom
   compile_libmfx
   compile_libmp3lame
   compile_libogg
@@ -40,6 +40,8 @@ function compile_all {
   compile_x264
   compile_x265
   compile_zimg
+  compile_nvenc
+  compile_amf
   #compile_svt-av1
   compile_svt-hevc
   #compile_svt-vp9
@@ -84,6 +86,7 @@ function compile {
 }
 
 function compile_svt-av1 {
+  git clone $svtav1 $SRC/svt-av1
   echo "#### COMPILING SVT-AV1 ..."
   cd $SRC/svt-av1/Build
   cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
@@ -95,6 +98,7 @@ function compile_svt-av1 {
 
 function compile_svt-hevc {
   echo "#### COMPILING SVT-HEVC ..."
+  git clone $svthevc $SRC/svt-hevc
   cd $SRC/svt-hevc/Build
   cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
   MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\..\Bin/" /property:ConfigurationType="StaticLibrary" /property:TargetExt=".lib" Source/Lib/Codec/SvtHevcEnc.vcxproj
@@ -104,6 +108,7 @@ function compile_svt-hevc {
 }
 
 function compile_svt-vp9 {
+  git clone $svtvp9 $SRC/svt-vp9
   echo "#### COMPILING SVT-VP9 ..."
   cd $SRC/svt-vp9/Build
   cmake .. -G "$VSVERSION" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES="Debug;Release"
@@ -115,18 +120,18 @@ function compile_svt-vp9 {
 
 function compile_libmfx {
   echo "#### COMPILING LIBMFX ..."
-  cd $SRC/libmfx/api/mfx_dispatch/windows
-  if [ "$MODE" == "debug" ];then
-    sed -i 's/\<MultiThreadedDebug\>/MultiThreadedDebugDLL/g' libmfx_vs2015.vcxproj
-    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libmfx_vs2015.vcxproj
-  else
-    MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\..\..\build/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libmfx_vs2015.vcxproj
+  git clone $libmfx $SRC/libmfx
+  cd $SRC/libmfx
+  git checkout c200d833e25a91e3e49d69890dac1ffa3486cbe9
+  if [[ ! -f "configure" ]]; then
+      autoreconf -fiv || exit 1
   fi
-  cp $SRC/libmfx/build/libmfx_vs2015.lib $BUILD/lib/libmfx.lib
-  cp -r ../../include $BUILD/include/mfx
+  compile libmfx
+  sed -i 's/-lstdc++/-ladvapi32/g' $BUILD/lib/pkgconfig/libmfx.pc
 }
 
 function compile_opus {
+  git clone $opus $SRC/opus
   echo "#### COMPILING OPUS ..."
   cd $SRC/opus/win32/VS2015
   echo \nConverting project file ...
@@ -146,6 +151,7 @@ function compile_opus {
 }
 
 function compile_zimg {
+  git clone $zimg $SRC/zimg
   echo "#### COMPILING ZIMG ..."
   cd $SRC/zimg
   ./autogen.sh
@@ -159,11 +165,13 @@ function compile_zimg {
 }
 
 function compile_fdk-aac {
+  git clone $fdkaac $SRC/fdk-aac
   echo "#### COMPILING FDK-AAC ..."
   compile fdk-aac "--disable-static --disable-shared"
 }
 
 function compile_snappy {
+  git clone $snappy $SRC/snappy
   echo "#### COMPILING SNAPPY ..."
   cd $SRC/snappy
   rm -rf work
@@ -176,17 +184,17 @@ function compile_snappy {
 }
 
 function compile_x264 {
+  git clone $x264 $SRC/x264
   echo "#### COMPILING X264 ..."
   cd $SRC/x264
-  CC=cl ./configure --prefix=$BUILD --extra-cflags='-DNO_PREFIX' --disable-cli --enable-static --libdir=$BUILD/lib
-  cd $SRC/x264/SMP
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:OutDir="$(ProjectDir)..\build/" /property:TargetName=libx264 /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 libx264.vcxproj
-  cp -r $SRC/x264/build/include/* $BUILD/include
-  cp $SRC/x264/x264.pc $BUILD/lib/pkgconfig
-  cp $SRC/x264/build/lib/x64/libx264.lib $BUILD/lib
+  git checkout b5bc5d69c580429ff716bafcd43655e855c31b02
+  CC=cl ./configure --prefix=$BUILD --disable-cli --enable-static --enable-pic --libdir=$BUILD/lib
+  make -j $CPU_CORES
+  make install-lib-static
 }
 
 function compile_x265 {
+  git clone $x265 --branch stable $SRC/x265
   echo "#### COMPILING X265 ..."
   cd $SRC/x265/build/vc15-x86_64
   rm -rf work*
@@ -215,6 +223,7 @@ function compile_x265 {
 }
 
 function compile_libaom {
+  git clone $libaom $SRC/libaom
   echo "#### COMPILING LIBAOM ..."
   cd $SRC/libaom
   rm -rf work
@@ -232,18 +241,20 @@ function compile_libaom {
 }
 
 function compile_libmp3lame {
+  svn co svn://svn.code.sf.net/p/lame/svn/trunk/lame $SRC/lame
   echo "#### COMPILING LIBMP3LAME ..."
+  cd $SRC/lame
   compile lame "--enable-nasm --disable-frontend --disable-shared --enable-static"
-  cp $BUILD/lib/libmp3lame.lib $BUILD/lib/mp3lame.lib
-  rm $BUILD/lib/libmp3lame.lib
 }
 
 function compile_libogg {
+  git clone $libogg $SRC/libogg
   echo "#### COMPILING LIBOGG ..."
   compile libogg "--disable-shared"
 }
 
 function compile_libvorbis {
+  git clone $libvorbis $SRC/libvorbis
   echo "#### COMPILING LIBVORBIS ..."
   cp -ar $SRC/libogg/include/ogg/ $SRC/libvorbis/lib/ #copying needed ogg files
   compile libvorbis "--disable-shared"  
@@ -251,24 +262,33 @@ function compile_libvorbis {
 }
 
 function compile_libvpx {
+  git clone $libvpx $SRC/libvpx
   echo "#### COMPILING LIBVPX ..."
   cd $SRC/libvpx
   ./configure --prefix=$BUILD --target=x86_64-win64-vs15 --enable-vp9-highbitdepth --disable-shared --disable-examples --disable-tools --disable-docs --disable-libyuv --disable-unit_tests --disable-postproc
+  sed -i 's/v141/v142/g' vpx.vcxproj
   make -j $CPU_CORES
-  MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration="$MSBUILD_CONFIG" /property:TargetName=vpx /property:PostBuildEventUseInBuild=false /property:OutDir="$(ProjectDir)msvc/" /property:WindowsTargetPlatformVersion=$TARGETPLATFORM /property:PlatformToolset=$TOOLSET /property:Platform=x64 vpx.vcxproj
-  cp $SRC/libvpx/msvc/vpx.lib $BUILD/lib/vpx.lib
-  cp -r $SRC/libvpx/vpx $BUILD/include
+  make install
+  mv $BUILD/lib/x64/vpxmd.lib $BUILD/lib/vpx.lib
+  rm -rf $BUILD/lib/x64
 }
 
-function compile_ffmpeg {
-  cd $SRC/ffmpeg
-  make clean
+function compile_nvenc {
+  git clone git://github.com/FFmpeg/nv-codec-headers.git $SRC/ffnvcodec
   echo "### Copying NVENC headers ..."
   cd $SRC/ffnvcodec
   make PREFIX=$BUILD install
-  
+}
+
+function compile_amf {
+  git clone $amf $SRC/amf
   echo "### Copying AMF headers ..."
   cp -a $SRC/amf/amf/public/include $BUILD/include/AMF
+}
+
+function compile_ffmpeg {
+  git clone $ffmpeg $SRC/ffmpeg
+  cd $SRC/ffmpeg
   
   echo "### Applying patches ..."
   cd $SRC/ffmpeg
@@ -276,22 +296,13 @@ function compile_ffmpeg {
   #patch -N -p1 -i ../svt-vp9/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-vp9.patch
   patch -N -p1 -i ../svt-hevc/ffmpeg_plugin/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch
   patch -N -p1 -i ../svt-hevc/ffmpeg_plugin/0002-doc-Add-libsvt_hevc-encoder-docs.patch
-  ffbranch=$(git rev-parse --abbrev-ref HEAD)
-  echo "FFMpeg branch: $ffbranch ..."
-  if [ "$ffbranch" == "release/4.0" ]; then
-    patch -N -p1 -i ../../patches/0001-dynamic-loading-of-shared-fdk-aac-library-4.0.patch
-    patch -N -p0 -i ../../patches/0002-patch-ffmpeg-to-new-fdk-api.patch
-  else  
-    patch -N -p1 -i ../../patches/0001-dynamic-loading-of-shared-fdk-aac-library.patch
-  fi
+  #git apply ../svt-hevc/ffmpeg_plugin/0001-lavc-svt_hevc-add-libsvt-hevc-encoder-wrapper.patch
+  #git apply ../svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1-with-svt-hevc.patch
+  patch -N -p1 -i ../../patches/0001-dynamic-loading-of-shared-fdk-aac-library.patch
   
   echo "### Compiling FFMpeg ..."
   cd $SRC/ffmpeg
-  if [ "$MODE" == "debug" ]; then
-    TOOLS="--disable-doc --disable-shared --disable-stripping --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac"
-  else
-    TOOLS="--disable-doc --disable-shared --enable-static --enable-gpl --enable-nonfree --enable-runtime-cpudetect --disable-devices --disable-network --enable-w32threads --enable-postproc --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-avisynth --enable-libx265 --enable-cuda --enable-cuvid --enable-d3d11va --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac"
-  fi
+  TOOLS="--disable-doc --disable-shared --enable-static --enable-gpl --enable-runtime-cpudetect --disable-devices --disable-ffprobe --disable-ffplay --disable-demuxers --disable-decoders --disable-network --enable-w32threads --enable-libsnappy --enable-libx264 --enable-libmp3lame --enable-libsvthevc --enable-libzimg --enable-libx265 --enable-nvenc --enable-libvpx --enable-libvorbis --enable-libmfx --enable-libopus --enable-amf --enable-libfdk-aac"
   PKG_CONFIG_PATH=$BUILD/lib/pkgconfig:$PKG_CONFIG_PATH ./configure --toolchain=msvc --extra-cflags="$CFLAGS -I$BUILD/include" --extra-ldflags="-LIBPATH:$BUILD/lib" --prefix=$BUILD --pkg-config-flags="--static" $TOOLS
   make -j $CPU_CORES
   make install
@@ -301,6 +312,9 @@ function compile_ffmpeg {
   for file in *.a; do
     mv "$file" "`basename "$file" .a`.lib"
   done
+
+  # clean up
+  rm -rf $BUILD/lib/*.la
   
   # Create archives
   cd $BUILD
