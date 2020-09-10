@@ -44,7 +44,7 @@ function build_mfx {
         rm -rf $SRC/libmfx
         git clone https://github.com/lu-zero/mfx_dispatch.git $SRC/libmfx
         cd $SRC/libmfx
-        git checkout c200d833e25a91e3e49d69890dac1ffa3486cbe9
+        #git checkout c200d833e25a91e3e49d69890dac1ffa3486cbe9
         if [[ ! -f "configure" ]]; then
             autoreconf -fiv || exit 1
         fi
@@ -78,44 +78,32 @@ function build_aom {
 function build_librav1e {
     if [ ! -f "$BUILD/lib/rav1e.lib" ]; then
         rm -rf $SRC/librav1e
-        git clone https://github.com/xiph/rav1e.git $SRC/librav1e
+        #use older branch because of failed compile 
+        git clone --depth 1 --branch p20200721 https://github.com/xiph/rav1e.git $SRC/librav1e
         cd $SRC/librav1e
-        ./build.sh
-        cp target/$MODE/rav1e.lib $BUILD/lib/rav1e.lib
+        PARAMS="--target x86_64-pc-windows-msvc --prefix=$BUILD --libdir=$BUILD/lib --includedir=$BUILD/include --library-type=staticlib"
+        if [ "$MODE" == "debug" ];then
+            RUSTFLAGS="-C target-cpu=native" cargo cinstall $PARAMS
+        else
+            RUSTFLAGS="-C target-cpu=native" cargo cinstall --release $PARAMS
+        fi
+        sed -i 's#\\rav1e##g' $BUILD/lib/pkgconfig/rav1e.pc
     fi
     add_comp librav1e
 }
 
 function build_svt {
-    # HEVC
-    #git clone https://github.com/OpenVisualCloud/SVT-HEVC.git $SRC/svt-hevc
-    #cd $SRC/svt-hevc/Build
-    #cmake .. -G"Visual Studio 15 2017" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES=$MSBUILD_CONFIG
-    #MSBuild.exe /maxcpucount:$NUMBER_OF_PROCESSORS /property:Configuration=$MSBUILD_CONFIG /property:ConfigurationType=StaticLibrary /property:TargetExt=.lib svt-hevc.sln
-    #cp -r ../Source/API $BUILD/include/svt-hevc ; cp ../Bin/$MSBUILD_CONFIG/SvtHevcEnc.lib $BUILD/lib/ ; cp SvtHevcEnc.pc $BUILD/lib/pkgconfig/
-    #add_comp libsvthevc
-    #
-    # AV1
     if [ ! -f "$BUILD/lib/SvtAv1Enc.lib" ]; then
         rm -rf $SRC/svt-av1
-        git clone https://github.com/OpenVisualCloud/SVT-AV1.git $SRC/svt-av1
+        git clone --depth 1 --branch v0.8.4 https://github.com/OpenVisualCloud/SVT-AV1.git $SRC/svt-av1
         cd $SRC/svt-av1/Build
         cmake .. -G"Visual Studio 16 2019" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES=$MSBUILD_CONFIG
         MSBuild.exe /maxcpucount:$NUMBER_OF_PROCESSORS /property:Configuration=$MSBUILD_CONFIG /property:ConfigurationType=StaticLibrary /property:TargetExt=.lib Source/Lib/Encoder/SvtAv1Enc.vcxproj
         cp -r ../Source/API $BUILD/include/svt-av1 ; cp ../Bin/$MSBUILD_CONFIG/SvtAv1Enc.lib $BUILD/lib/ ; cp SvtAv1Enc.pc $BUILD/lib/pkgconfig/
     fi
-    add_comp libsvtav1
-    #
-    # VP9
-    #cd $SRC/svt-vp9/Build
-    #cmake .. -G"Visual Studio 15 2017" -A x64 -DCMAKE_INSTALL_PREFIX=$BUILD -DCMAKE_CONFIGURATION_TYPES=$MSBUILD_CONFIG
-    #MSBuild.exe /maxcpucount:$CPU_CORES /property:Configuration=$MSBUILD_CONFIG /property:ConfigurationType=StaticLibrary /property:TargetExt=".lib" svt-vp9.sln
-    #cp -r ../Source/API $BUILD/include/svt-vp9 ; cp ../Bin/$MSBUILD_CONFIG/SvtVp9Enc.lib $BUILD/lib/ ; cp SvtVp9Enc.pc $BUILD/lib/pkgconfig/
-    #sed -i 's/ -lpthread//g' $BUILD/lib/pkgconfig/SvtVp9Enc.pc
-    #sed -i 's/ -lm//g' $BUILD/lib/pkgconfig/SvtVp9Enc.pc
     cd $SRC/ffmpeg
-    #git am $SRC/svt-hevc/ffmpeg_plugin/0001*.patch
     git apply $SRC/svt-av1/ffmpeg_plugin/0001-Add-ability-for-ffmpeg-to-run-svt-av1.patch
+    add_comp libsvtav1
 }
 
 function build_ogg {
@@ -282,6 +270,8 @@ function build_x265 {
 function add_comp {
     COMPONENTS="$COMPONENTS --enable-$1"
 }
+BUILD=`realpath build`
+SRC=`realpath src`
 
 rm -rf src/ffmpeg
 if [ "$REBUILD" == "true" ]; then
@@ -289,12 +279,9 @@ if [ "$REBUILD" == "true" ]; then
     mkdir src build build/include build/lib build/lib/pkgconfig
 fi
 
-BUILD=`realpath build`
-SRC=`realpath src`
+git clone -b release/4.3 git://source.ffmpeg.org/ffmpeg.git $SRC/ffmpeg
 
-git clone git://source.ffmpeg.org/ffmpeg.git $SRC/ffmpeg
-
-#build_librav1e
+build_librav1e
 build_nvenc
 build_amf
 build_mfx
@@ -325,6 +312,7 @@ done
 
 # clean up
 #rm -rf $BUILD/lib/pkgconfig $BUILD/lib/fdk-aac.lib $BUILD/lib/*.la
+rm -rf $BUILD/lib/*.la
 
 # Create archives
 cd $BUILD
