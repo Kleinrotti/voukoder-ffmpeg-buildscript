@@ -37,7 +37,7 @@ runs:
       MSBuild.exe /property:Configuration="${{ env.msbuildConfig }}" x265-static.vcxproj
       move ${{ inputs.config }}\x265-static.lib ..\..\..\..\dist\x265_12bit.lib
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: x265_12bit-${{ runner.os }}-${{ inputs.config }}
       path: dist/x265_12bit.lib

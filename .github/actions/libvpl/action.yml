@@ -42,7 +42,7 @@ runs:
       IF EXIST "lib\vpld.lib" move "lib\vpld.lib" "lib\vpl.lib"
       D:\a\_temp\setup-msys2\msys2.cmd -c 'rm -rf bin/cmake ; tar czf ../dist/libvpl.tgz *'
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libvpl-${{ runner.os }}-${{ inputs.config }}
       path: dist/libvpl.tgz

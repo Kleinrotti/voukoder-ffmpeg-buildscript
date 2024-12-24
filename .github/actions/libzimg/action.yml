@@ -38,7 +38,7 @@ runs:
       md build build\include build\lib build\lib\pkgconfig dist
       D:\a\_temp\setup-msys2\msys2.cmd -c 'cd zimg ; ./autogen.sh ; ./configure --prefix=$(realpath ../build) ; cd _msvc/zimg ; MSBuild.exe /property:Configuration="${{ env.msbuildConfig }}" /property:ConfigurationType=StaticLibrary /property:PlatformToolset=v143 /property:Platform=x64 /property:WholeProgramOptimization=false zimg.vcxproj ; cp x64/${{ inputs.config }}/z.lib ../../../build/lib/zimg.lib ; cd ../.. ; cp src/zimg/api/zimg.h  ../build/include/zimg.h ; cp zimg.pc ../build/lib/pkgconfig/zimg.pc ; cd ../build ; tar czf ../dist/libzimg.tgz *'
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libzimg-${{ runner.os }}-${{ inputs.config }}
       path: dist/libzimg.tgz

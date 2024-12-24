@@ -12,7 +12,7 @@ runs:
   using: "composite"
   steps:
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libmfx-${{ runner.os }}-${{ inputs.config }}
       path: .github/actions/libmfx/libmfx.tgz

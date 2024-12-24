@@ -26,7 +26,7 @@ runs:
       md build dist
       D:\a\_temp\setup-msys2\msys2.cmd -c 'svn co https://svn.code.sf.net/p/lame/svn/${{ inputs.refId }}/lame lame ; cd lame ; autoreconf -i ; CC=cl.exe CXX=cl.exe CXXFLAGS=${{ env.cFlags }} ./configure --prefix=$(realpath ../build) --enable-nasm --disable-frontend --disable-shared --enable-static ; make -j ; make install ; cd ../build ; tar czf ../dist/libmp3lame.tgz *
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libmp3lame-${{ runner.os }}-${{ inputs.config }}
       path: dist/libmp3lame.tgz

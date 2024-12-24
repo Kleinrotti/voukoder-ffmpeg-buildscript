@@ -44,7 +44,7 @@ runs:
       MSBuild.exe /property:Configuration="${{ env.msbuildConfig }}" Snappy.sln
       D:\a\_temp\setup-msys2\msys2.cmd -c 'cp ${{ inputs.config }}/snappy.lib ../../build/lib/snappy.lib ; cp ../snappy.h ../snappy-c.h ../../build/include/ ; cd ../../build ; tar czf ../dist/libsnappy.tgz *'
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libsnappy-${{ runner.os }}-${{ inputs.config }}
       path: dist/libsnappy.tgz

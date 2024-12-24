@@ -37,7 +37,7 @@ runs:
       md build dist
       D:\a\_temp\setup-msys2\msys2.cmd -c 'cd fdkaac ; autoreconf -fiv ; CC=cl.exe CXX=cl.exe CXXFLAGS=${{ env.cFlags }} ./configure --prefix=$(realpath ../build) --disable-shared --disable-static ; make -j 2 ; make install ; cd ../build ; tar czf ../dist/libfdkaac.tgz *'
   - name: Publish artifact
-    uses: actions/upload-artifact@v2
+    uses: actions/upload-artifact@v4
     with:
       name: libfdkaac-${{ runner.os }}-${{ inputs.config }}
       path: dist/libfdkaac.tgz
